@@ -4,7 +4,7 @@ on:
 
 jobs:
   setup-vnc:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Install & Connect Tailscale
         shell: powershell
