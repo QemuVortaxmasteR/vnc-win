@@ -1,0 +1,48 @@
+name: TeamViewer Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  teamviewer:
+    runs-on: windows-latest
+    steps:
+      - name: Install TeamViewer via Choco
+        shell: powershell
+        run: |
+          Write-Host "Installing TeamViewer..."
+          choco install teamviewer -y --no-progress
+
+      - name: Configure TeamViewer Password
+        shell: powershell
+        run: |
+          Write-Host "Setting fixed password for TeamViewer..."
+          # إيقاف الخدمة لتطبيق الإعدادات
+          stop-service TeamViewer -ErrorAction SilentlyContinue
+          
+          # تعيين كلمة المرور MR.English2008 (يتم تحويلها لـ هكس داخل السجل في الوضع العادي، لكن هنا سنحاول تشغيلها كإعداد مباشر)
+          # ملاحظة: TeamViewer يشفّر كلمات المرور، لذا سنعتمد على تشغيله بواجهة مستخدم لتعطيك الـ ID
+          start-service TeamViewer
+
+      - name: Get TeamViewer ID & Details
+        shell: powershell
+        run: |
+          Write-Host "Waiting for TeamViewer to initialize..."
+          Start-Sleep -Seconds 30
+          
+          # محاولة استخراج الـ ID من ملفات السجل
+          $tvID = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\TeamViewer" -Name "ClientID" -ErrorAction SilentlyContinue
+          Write-Host "=========================================="
+          Write-Host "TEAMVIEWER DETAILS:"
+          Write-Host "Your ID: $($tvID.ClientID)"
+          Write-Host "Temporary Password: انظر إلى واجهة البرنامج إذا كنت تستخدم ريموت ديسك توب"
+          Write-Host "=========================================="
+          Write-Host "ملاحظة: TeamViewer يحتاج واجهة رسومية نشطة ليظهر الـ ID."
+          Write-Host "إذا لم يظهر الـ ID، يفضل استخدام NoMachine لأنه أكثر استقراراً في السيرفرات."
+
+      - name: Keep Alive
+        shell: powershell
+        run: |
+          while ($true) {
+            Start-Sleep -Seconds 300
+          }
