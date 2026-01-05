@@ -1,4 +1,4 @@
-name: NoMachine Windows
+name: NoMachine Windows (Choco Version)
 
 on:
   workflow_dispatch:
@@ -21,36 +21,31 @@ jobs:
       - name: Set User Password
         shell: powershell
         run: |
-          # ضروري جداً لأن NoMachine لا يسمح بالاتصال بحساب بدون كلمة مرور
+          # تعيين كلمة مرور للمستخدم الحالي (ضروري للدخول عبر NoMachine)
           net user runneradmin "P@ssword1234"
 
-      - name: Open NoMachine Firewall Port
+      - name: Install NoMachine via Choco
+        shell: powershell
+        run: |
+          Write-Host "Installing NoMachine using Chocolatey..."
+          # تثبيت NoMachine وتجاهل أي مطالبات (Confirm)
+          choco install nomachine -y --no-progress
+          
+          # التأكد من تشغيل الخدمة وتفعيلها
+          Start-Sleep -Seconds 15
+          sc.exe config nxserver start= auto
+          sc.exe start nxserver
+
+      - name: Open Firewall Port
         shell: powershell
         run: |
           netsh advfirewall firewall add rule name="NoMachine" dir=in action=allow protocol=TCP localport=4000
-
-      - name: Download, Install & Start NoMachine
-        shell: powershell
-        run: |
-          # استخدام curl مع إضافة مراجع لضمان التحميل الصحيح للملف
-          & "C:\Windows\System32\curl.exe" -L -A "Mozilla/5.0" -o nomachine.exe "https://web9001.nomachine.com/download/9.3/Windows/nomachine_9.3.7_1_x64.exe"
-          
-          # التحقق من أن الملف موجود وليس فارغاً قبل البدء
-          if ((Get-Item "nomachine.exe").Length -lt 10MB) { throw "Download failed or link is broken" }
-          
-          Write-Host "Installing NoMachine..."
-          Start-Process -FilePath .\nomachine.exe -ArgumentList "/S" -Wait
-          
-          # انتظار بسيط لضمان استقرار الخدمات
-          Start-Sleep -Seconds 15
-          sc.exe start nxserver
 
       - name: Show Connection Details & Keep Alive
         shell: powershell
         run: |
           Write-Host "=========================================="
-          Write-Host "Thanks to MR.English2008 for this work"
-          Write-Host "Modified for stability"
+          Write-Host "NoMachine is installed via Chocolatey"
           Write-Host "=========================================="
           Write-Host "CONNECTION DETAILS:"
           Write-Host "IP Address: $env:TAILSCALE_IP"
@@ -58,7 +53,11 @@ jobs:
           Write-Host "Username: runneradmin"
           Write-Host "Password: P@ssword1234"
           Write-Host "=========================================="
+          
+          # الحفاظ على الجهاز يعمل
+          $i = 0
           while ($true) {
-            Write-Host "Keep alive - $(Get-Date)"
+            Write-Host "Runner is active... Step: $i"
             Start-Sleep -Seconds 300
+            $i++
           }
