@@ -21,20 +21,22 @@ jobs:
       - name: Set User Password
         shell: powershell
         run: |
-          # تعيين كلمة مرور للمستخدم الحالي (ضروري للدخول عبر NoMachine)
           net user runneradmin "P@ssword1234"
 
       - name: Install NoMachine via Choco
         shell: powershell
         run: |
-          Write-Host "Installing NoMachine using Chocolatey..."
-          # تثبيت NoMachine وتجاهل أي مطالبات (Confirm)
           choco install nomachine -y --no-progress
-          
-          # التأكد من تشغيل الخدمة وتفعيلها
-          Start-Sleep -Seconds 15
-          sc.exe config nxserver start= auto
-          sc.exe start nxserver
+          Import-Module "$env:ProgramData\chocolatey\helpers\chocolateyInstaller.psm1"
+          Update-SessionEnvironment
+          Start-Sleep -Seconds 30
+          $serviceName = "nxserver"
+          if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
+              sc.exe config $serviceName start= auto
+              sc.exe start $serviceName
+          } else {
+              Start-Process "C:\Program Files (x86)\NoMachine\bin\nxserver.exe" -ArgumentList "--start" -WindowStyle Hidden
+          }
 
       - name: Open Firewall Port
         shell: powershell
@@ -45,19 +47,12 @@ jobs:
         shell: powershell
         run: |
           Write-Host "=========================================="
-          Write-Host "NoMachine is installed via Chocolatey"
-          Write-Host "=========================================="
           Write-Host "CONNECTION DETAILS:"
           Write-Host "IP Address: $env:TAILSCALE_IP"
           Write-Host "Port: 4000"
           Write-Host "Username: runneradmin"
           Write-Host "Password: P@ssword1234"
           Write-Host "=========================================="
-          
-          # الحفاظ على الجهاز يعمل
-          $i = 0
           while ($true) {
-            Write-Host "Runner is active... Step: $i"
             Start-Sleep -Seconds 300
-            $i++
           }
