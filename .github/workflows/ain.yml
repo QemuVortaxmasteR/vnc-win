@@ -1,4 +1,4 @@
-name: NoMachine Windows (Choco Version)
+name: NoMachine Windows (Final Fix)
 
 on:
   workflow_dispatch:
@@ -27,16 +27,26 @@ jobs:
         shell: powershell
         run: |
           choco install nomachine -y --no-progress
-          Import-Module "$env:ProgramData\chocolatey\helpers\chocolateyInstaller.psm1"
-          Update-SessionEnvironment
-          Start-Sleep -Seconds 30
-          $serviceName = "nxserver"
-          if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
-              sc.exe config $serviceName start= auto
-              sc.exe start $serviceName
-          } else {
-              Start-Process "C:\Program Files (x86)\NoMachine\bin\nxserver.exe" -ArgumentList "--start" -WindowStyle Hidden
+          
+          Write-Host "Searching for nxserver.exe..."
+          $paths = @(
+              "C:\Program Files\NoMachine\bin\nxserver.exe",
+              "C:\Program Files (x86)\NoMachine\bin\nxserver.exe"
+          )
+          
+          $exePath = $null
+          foreach ($p in $paths) {
+              if (Test-Path $p) { $exePath = $p; break }
           }
+          
+          if ($exePath) {
+              Write-Host "Found at: $exePath. Starting..."
+              Start-Process $exePath -ArgumentList "--start" -WindowStyle Hidden -ErrorAction SilentlyContinue
+          } else {
+              Write-Host "Warning: nxserver.exe not found in standard paths."
+          }
+          
+          Start-Sleep -Seconds 20
 
       - name: Open Firewall Port
         shell: powershell
