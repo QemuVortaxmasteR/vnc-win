@@ -1,4 +1,4 @@
-name: NoMachine Windows
+name: NoMachine Windows RDP
 
 on:
   workflow_dispatch:
@@ -7,38 +7,59 @@ jobs:
   nomachine:
     runs-on: windows-latest
     steps:
+      # 1. إعداد Tailscale للاتصال الآمن
       - name: Install & Connect Tailscale
         shell: powershell
         run: |
-          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
           $installerPath = "$env:TEMP\tailscale.msi"
           Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-${{ github.run_id }}
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-windows-nm
           $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          "TAILSCALE_IP=$tsIP" | Out-File -Append $env:GITHUB_ENV
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Open NoMachine Firewall Port
+      # 2. تعيين كلمة مرور للمستخدم (خطوة ضرورية جداً)
+      - name: Set Runner Password
+        shell: powershell
+        run: |
+          $Password = "MySecretPass123!" # يمكنك تغيير كلمة المرور هنا
+          $User = "runneradmin"
+          net user $User $Password
+          Write-Host "User: $User | Password: $Password"
+
+      # 3. فتح منفذ NoMachine في جدار الحماية
+      - name: Open Firewall Port
         shell: powershell
         run: |
           netsh advfirewall firewall add rule name="NoMachine" dir=in action=allow protocol=TCP localport=4000
 
-      - name: Download, Install & Start NoMachine
+      # 4. تحميل وتثبيت NoMachine
+      - name: Install NoMachine
         shell: powershell
         run: |
-          & "C:\Windows\System32\curl.exe" -o nomachine.exe https://web9001.nomachine.com/download/9.3/Windows/nomachine_9.3.7_1_x64.exe
-          Start-Process -FilePath .\nomachine.exe -ArgumentList "/S" -Wait
-          sc start nxserver
+          Invoke-WebRequest -Uri "https://download.nomachine.com/download/8.14/Windows/nomachine_8.14.2_1_x64.exe" -OutFile "nomachine.exe"
+          Start-Process -FilePath .\nomachine.exe -ArgumentList "/S", "/v/qn" -Wait
+          # التأكد من تشغيل الخدمة
+          Start-Sleep -Seconds 10
+          Get-Service nxserver | Set-Service -StartupType Automatic
+          Get-Service nxserver | Start-Service -ErrorAction SilentlyContinue
 
-      - name: Show Connection Details & Keep Alive
+      # 5. عرض بيانات الاتصال ومنع الإغلاق
+      - name: Connection Details & Keep Alive
         shell: powershell
         run: |
-          Write-Host "Thanks to MR.English2008 for this perfect work"
-          Write-Host "follow for more in my telegram channel"
-          Write-Host "https://t.me/ME2008_RDP"
-          Write-Host "======================="
-          Write-Host "CONNECTION DETAILS:"
-          Write-Host "nomachine IP: $($env:TAILSCALE_IP):4000"
-          while ($true) {
-            Start-Sleep -Seconds 300
+          Write-Host "-------------------------------------------"
+          Write-Host "NoMachine is ready!"
+          Write-Host "IP Address: $env:TAILSCALE_IP"
+          Write-Host "Port: 4000"
+          Write-Host "User: runneradmin"
+          Write-Host "Password: MySecretPass123!"
+          Write-Host "-------------------------------------------"
+          # إبقاء الـ Workflow يعمل لمدة 6 ساعات (الحد الأقصى لـ GitHub)
+          $i = 0
+          while ($i -lt 36) { 
+            Write-Host "Runner is still active... ($(Get-Date))"
+            Start-Sleep -Seconds 600
+            $i++
           }
